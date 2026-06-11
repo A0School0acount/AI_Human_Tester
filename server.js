@@ -5,14 +5,9 @@ const path    = require('path');
 const app  = express();
 const PORT = process.env.PORT || 8080;
 
-// CSV Parsing
 let aiLines    = [];
 let humanLines = [];
 
-/**
- * Parses a single-column CSV file where every row is a dialogue line.
- * Handles quoted values ("line with, commas"), CRLF, and empty rows.
- */
 function parseCSVLines(rawContent) {
   const results = [];
   const lines = rawContent.split(/\r?\n/);
