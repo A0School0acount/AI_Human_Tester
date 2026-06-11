@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Turing Trial</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #070a12;
+      --surface:      #0d1120;
+      --surface-hi:   #131928;
+      --border:       rgba(80, 120, 255, 0.12);
+      --border-hi:    rgba(80, 120, 255, 0.28);
+      --text:         #b8c8e8;
+      --text-dim:     #374060;
+      --text-bright:  #eef2ff;
+      --ai:           #4d9eff;
+      --ai-glow:      rgba(77, 158, 255, 0.18);
+      --human:        #ffaa5e;
+      --human-glow:   rgba(255, 170, 94, 0.18);
+      --correct:      #2ee88a;
+      --correct-glow: rgba(46, 232, 138, 0.15);
+      --wrong:        #ff4560;
+      --wrong-glow:   rgba(255, 69, 96, 0.15);
+      --radius:       14px;
+      --radius-sm:    8px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px 16px 40px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Rajdhani', sans-serif;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* ── Grid background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(77, 158, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(77, 158, 255, 0.025) 1px, transparent 1px);
+      background-size: 44px 44px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Vignette ── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(7, 10, 18, 0.85) 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 580px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ──────────────────────────────────────────────────
+       HEADER
+    ────────────────────────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .logo-icon {
+      width: 34px;
+      height: 34px;
+      border: 2px solid var(--ai);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      color: var(--ai);
+      box-shadow: 0 0 12px rgba(77,158,255,0.25);
+    }
+
+    .logo-text {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: var(--text-bright);
+    }
+
+    .logo-sub {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    /* ──────────────────────────────────────────────────
+       SCREENS
+    ────────────────────────────────────────────────── */
+    .screen { display: none; }
+
+    .screen.active {
+      display: block;
+      animation: fadeUp 0.35s cubic-bezier(.22,.68,0,1.2) both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ──────────────────────────────────────────────────
+       CARDS (shared)
+    ────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 44px 40px;
+    }
+
+    @media (max-width: 480px) {
+      .card { padding: 32px 22px; }
+    }
+
+    /* ──────────────────────────────────────────────────
+       INTRO SCREEN
+    ────────────────────────────────────────────────── */
+    .intro-title {
+      font-size: 48px;
+      font-weight: 700;
+      letter-spacing: 6px;
+      color: var(--text-bright);
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .intro-desc {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+      line-height: 1.7;
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 36px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .stat {
+      flex: 1;
+      text-align: center;
+      padding: 18px 12px;
+      border-right: 1px solid var(--border);
+    }
+
+    .stat:last-child { border-right: none; }
+
+    .stat-num {
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--ai);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* ──────────────────────────────────────────────────
+       GAME SCREEN
+    ────────────────────────────────────────────────── */
+    .progress-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .progress-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--surface-hi);
+      border: 2px solid var(--text-dim);
+      transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .progress-dot.done   { background: var(--ai); border-color: var(--ai); }
+    .progress-dot.active { background: transparent; border-color: var(--ai); box-shadow: 0 0 10px var(--ai); }
+
+    .round-label {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--text-dim);
+      text-align: center;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    /* ── Dialogue card ── */
+    .dialogue-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 32px 28px;
+      margin-bottom: 16px;
+      min-height: 170px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.4s, background 0.4s;
+    }
+
+    /* Animated scan line */
+    .dialogue-card .scanline {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(77,158,255,0.4) 50%, transparent 100%);
+      animation: scan 4s linear infinite;
+      pointer-events: none;
+    }
+
+    @keyframes scan {
+      from { transform: translateY(-1px); }
+      to   { transform: translateY(172px); }
+    }
+
+    .dialogue-card.correct {
+      border-color: var(--correct);
+      background: linear-gradient(160deg, var(--surface), var(--correct-glow));
+    }
+
+    .dialogue-card.wrong {
+      border-color: var(--wrong);
+      background: linear-gradient(160deg, var(--surface), var(--wrong-glow));
+      animation: shake 0.45s ease;
+    }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%     { transform: translateX(-9px); }
+      40%     { transform: translateX(8px); }
+      60%     { transform: translateX(-6px); }
+      80%     { transform: translateX(5px); }
+    }
+
+    .result-badge {
+      display: none;
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+
+    .dialogue-card.correct .result-badge {
+      display: block;
+      background: var(--correct-glow);
+      color: var(--correct);
+      border: 1px solid rgba(46,232,138,0.3);
+    }
+
+    .dialogue-card.wrong .result-badge {
+      display: block;
+      background: var(--wrong-glow);
+      color: var(--wrong);
+      border: 1px solid rgba(255,69,96,0.3);
+    }
+
+    .dialogue-text {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 15px;
+      line-height: 1.75;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.1em;
+      background: var(--ai);
+      vertical-align: text-bottom;
+      animation: blink 0.75s step-end infinite;
+      margin-left: 1px;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    .source-reveal {
+      margin-top: 16px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      display: none;
+    }
+
+    .dialogue-card.correct .source-reveal,
+    .dialogue-card.wrong   .source-reveal { display: block; }
+
+    /* ── Answer buttons ── */
+    .btn-row {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 17px 24px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn:active { transform: scale(0.98); }
+
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.4;
+      transform: none !important;
+    }
+
+    .btn-ai {
+      background: var(--ai-glow);
+      color: var(--ai);
+      border-color: rgba(77, 158, 255, 0.25);
+    }
+
+    .btn-ai:hover:not(:disabled) {
+      background: rgba(77, 158, 255, 0.28);
+      border-color: var(--ai);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(77,158,255,0.22);
+    }
+
+    .btn-human {
+      background: var(--human-glow);
+      color: var(--human);
+      border-color: rgba(255, 170, 94, 0.25);
+    }
+
+    .btn-human:hover:not(:disabled) {
+      background: rgba(255, 170, 94, 0.28);
+      border-color: var(--human);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(255,170,94,0.22);
+    }
+
+    .btn-primary {
+      background: var(--ai);
+      color: #fff;
+      border-color: var(--ai);
+      letter-spacing: 2px;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #6ab2ff;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px rgba(77,158,255,0.38);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-dim);
+      border-color: var(--border);
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+      color: var(--text);
+      border-color: var(--border-hi);
+      background: var(--surface-hi);
+    }
+
+    .next-wrap {
+      display: none;
+      margin-top: 10px;
+    }
+
+    .next-wrap.visible {
+      display: block;
+      animation: fadeUp 0.3s ease both;
+    }
+
+    /* ──────────────────────────────────────────────────
+       RESULTS SCREEN
+    ────────────────────────────────────────────────── */
+    .results-label {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    .score-wrap {
+      text-align: center;
+      margin: 20px 0 24px;
+    }
+
+    .score-num {
+      font-size: 88px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--ai);
+      display: block;
+    }
+
+    .score-denom {
+      font-size: 16px;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    .verdict {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: var(--text-bright);
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .verdict-sub {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-align: center;
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    /* Answer log */
+    .answers-log {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+
+    .log-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      border-radius: var(--radius-sm);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+    }
+
+    .log-item.correct {
+      background: var(--correct-glow);
+      border: 1px solid rgba(46,232,138,0.18);
+    }
+
+    .log-item.wrong {
+      background: var(--wrong-glow);
+      border: 1px solid rgba(255,69,96,0.18);
+    }
+
+    .log-icon  { flex-shrink: 0; font-size: 14px; }
+    .log-text  { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim); }
+
+    .log-source {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .log-item.correct .log-source { color: var(--correct); }
+    .log-item.wrong   .log-source { color: var(--wrong); }
+
+    /* ── Loading dots ── */
+    .loading-dots {
+      display: flex;
+      gap: 7px;
+      justify-content: center;
+      padding: 28px 0;
+    }
+
+    .loading-dots span {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      animation: dotPulse 1.4s ease-in-out infinite;
+    }
+
+    .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes dotPulse {
+      0%,80%,100% { transform: scale(1); opacity: 0.3; }
+      40%          { transform: scale(1.4); opacity: 1; }
+    }
+
+    .err {
+      color: var(--wrong);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    @media (max-width: 480px) {
+      .intro-title  { font-size: 36px; }
+      .score-num    { font-size: 70px; }
+      .dialogue-text { font-size: 14px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+
+    <!-- ── Logo ── -->
+    <div class="header">
+      <div class="logo">
+        <div class="logo-icon">⌬</div>
+        <span class="logo-text">TURING TRIAL</span>
+      </div>
+      <div class="logo-sub">Human or Machine?</div>
+    </div>
+
+    <!-- ════════════════════════════════
+         SCREEN: INTRO
+    ════════════════════════════════ -->
+    <div id="screen-intro" class="screen active">
+      <div class="card" style="text-align:center">
+        <div class="intro-title">READY?</div>
+        <div class="intro-desc">
+          Three rounds. Each one you'll read a line of dialogue.<br>
+          Your job: decide if it was written by an AI or a human.
+        </div>
+        <div class="stat-row">
+          <div class="stat">
+            <div class="stat-num">3</div>
+            <div class="stat-label">Rounds</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">2</div>
+            <div class="stat-label">Choices</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">?</div>
+            <div class="stat-label">Your Score</div>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="startGame()">BEGIN TRIAL →</button>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════
+         SCREEN: GAME
+    ════════════════════════════════ -->
+    <div id="screen-game" class="screen">
+
+      <!-- Progress -->
+      <div class="progress-row">
+        <div class="progress-dot" id="dot-0"></div>
+        <div class="progress-dot" id="dot-1"></div>
+        <div class="progress-dot" id="dot-2"></div>
+      </div>
+      <div class="round-label" id="round-label">ROUND 1 OF 3</div>
+
+      <!-- Dialogue card -->
+      <div class="dialogue-card" id="dialogue-card">
+        <div class="scanline"></div>
+        <div class="result-badge" id="result-badge"></div>
+
+        <div class="dialogue-text" id="dialogue-text">
+          <div class="loading-dots"><span></span><span></span><span></span></div>
+        </div>
+
+        <div class="source-reveal" id="source-reveal"></div>
+      </div>
+
+      <!-- Choice buttons -->
+      <div class="btn-row" id="answer-btns">
+        <button class="btn btn-ai"    onclick="guess('ai')">    AI Generated</button>
+        <button class="btn btn-human" onclick="guess('human')"> Human Written</button>
+      </div>
+
+      <!-- Next / Finish button (hidden until answered) -->
+      <div class="next-wrap" id="next-wrap">
+        <button class="btn btn-ghost" id="next-btn">NEXT ROUND →</button>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════
+         SCREEN: RESULTS
+    ════════════════════════════════ -->
+    <div id="screen-results" class="screen">
+      <div class="card">
+        <div class="results-label">Trial Complete</div>
+
+        <div class="score-wrap">
+          <span class="score-num"  id="final-score">0</span>
+          <div  class="score-denom">OUT OF 3 CORRECT</div>
+        </div>
+
+        <div class="verdict"     id="verdict-title"></div>
+        <div class="verdict-sub" id="verdict-sub"></div>
+
+        <div class="answers-log" id="answers-log"></div>
+
+        <button class="btn btn-primary" onclick="startGame()">PLAY AGAIN →</button>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+
+  <script>
+    /* ─────────────────────────────────────────────────────
+       State
+    ───────────────────────────────────────────────────── */
+    let questions = [];
+    let currentQ  = 0;
+    let score     = 0;
+    let answers   = [];
+
+    const VERDICTS = {
+      0: ['DECEIVED',    'The machines fooled you completely. Try again?'],
+      1: ['SUSPICIOUS',  'You caught one. The others slipped past you.'],
+      2: ['PERCEPTIVE',  'Sharp eyes — you\'re starting to see the patterns.'],
+      3: ['UNCANNY',     'Perfect score. Are you sure you\'re not a machine?']
+    };
+
+    /* ─────────────────────────────────────────────────────
+       Navigation
+    ───────────────────────────────────────────────────── */
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    /* ─────────────────────────────────────────────────────
+       Game flow
+    ───────────────────────────────────────────────────── */
+    async function startGame() {
+      questions = [];
+      currentQ  = 0;
+      score     = 0;
+      answers   = [];
+
+      showScreen('screen-game');
+      setProgressUI(0);
+
+      // Show loading while fetching
+      document.getElementById('dialogue-text').innerHTML =
+        '<div class="loading-dots"><span></span><span></span><span></span></div>';
+      document.getElementById('answer-btns').querySelectorAll('.btn')
+        .forEach(b => b.disabled = true);
+
+      try {
+        const res  = await fetch('/api/questions?count=3');
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        questions  = data.questions;
+        renderQuestion();
+      } catch (err) {
+        document.getElementById('dialogue-text').innerHTML =
+          `<div class="err">Failed to load questions.<br>${err.message}</div>`;
+      }
+    }
+
+    function setProgressUI(idx) {
+      document.getElementById('round-label').textContent = `ROUND ${idx + 1} OF 3`;
+      for (let i = 0; i < 3; i++) {
+        const dot = document.getElementById(`dot-${i}`);
+        dot.className = 'progress-dot';
+        if (i < idx)       dot.classList.add('done');
+        else if (i === idx) dot.classList.add('active');
+      }
+    }
+
+    function renderQuestion() {
+      const q        = questions[currentQ];
+      const card     = document.getElementById('dialogue-card');
+      const badge    = document.getElementById('result-badge');
+      const reveal   = document.getElementById('source-reveal');
+      const btns     = document.getElementById('answer-btns');
+      const nextWrap = document.getElementById('next-wrap');
+
+      // Reset card state
+      card.className  = 'dialogue-card';
+      badge.textContent = '';
+      reveal.style.display = 'none';
+      reveal.textContent   = '';
+      btns.style.display   = 'flex';
+      btns.querySelectorAll('.btn').forEach(b => b.disabled = false);
+      nextWrap.classList.remove('visible');
+
+      setProgressUI(currentQ);
+      typewriterEffect(q.text);
+    }
+
+    /* ─────────────────────────────────────────────────────
+       Typewriter
+    ───────────────────────────────────────────────────── */
+    function typewriterEffect(text) {
+      const el = document.getElementById('dialogue-text');
+      el.innerHTML = '';
+
+      const openQ = Object.assign(document.createElement('span'), {
+        textContent: '"',
+        style: 'color: var(--text-dim)'
+      });
+      const body = document.createElement('span');
+      const cur  = Object.assign(document.createElement('span'), { className: 'cursor' });
+
+      el.appendChild(openQ);
+      el.appendChild(body);
+      el.appendChild(cur);
+
+      // Adaptive speed: aim to finish in ~2s, capped between 18–50ms/char
+      const speed = Math.min(50, Math.max(18, 2000 / text.length));
+      let i = 0;
+
+      (function type() {
+        if (i < text.length) {
+          body.textContent += text[i++];
+          setTimeout(type, speed);
+        } else {
+          cur.remove();
+          const closeQ = Object.assign(document.createElement('span'), {
+            textContent: '"',
+            style: 'color: var(--text-dim)'
+          });
+          el.appendChild(closeQ);
+        }
+      })();
+    }
+
+    /* ─────────────────────────────────────────────────────
+       Guess
+    ───────────────────────────────────────────────────── */
+    function guess(choice) {
+      const q       = questions[currentQ];
+      const correct = choice === q.source;
+      if (correct) score++;
+
+      answers.push({ text: q.text, source: q.source, guess: choice, correct });
+
+      const card   = document.getElementById('dialogue-card');
+      const badge  = document.getElementById('result-badge');
+      const reveal = document.getElementById('source-reveal');
+      const btns   = document.getElementById('answer-btns');
+      const next   = document.getElementById('next-wrap');
+      const nextBtn = document.getElementById('next-btn');
+
+      // Card feedback
+      card.classList.add(correct ? 'correct' : 'wrong');
+      badge.textContent = correct ? '✓ CORRECT' : '✗ WRONG';
+
+      // Source reveal
+      const srcLabel = q.source === 'ai' ? 'AI Generated' : 'Human Written';
+      reveal.style.display = 'block';
+      if (correct) {
+        reveal.innerHTML = `<span style="color:var(--correct)">Correct — this was ${srcLabel}</span>`;
+      } else {
+        reveal.innerHTML = `<span style="color:var(--wrong)">This was actually ${srcLabel}</span>`;
+      }
+
+      // Lock buttons
+      btns.querySelectorAll('.btn').forEach(b => b.disabled = true);
+
+      // Show next / finish
+      next.classList.add('visible');
+      if (currentQ >= 2) {
+        nextBtn.textContent = 'SEE RESULTS →';
+        nextBtn.onclick = showResults;
+      } else {
+        nextBtn.textContent = 'NEXT ROUND →';
+        nextBtn.onclick = nextRound;
+      }
+    }
+
+    function nextRound() {
+      currentQ++;
+      renderQuestion();
+    }
+
+    /* ─────────────────────────────────────────────────────
+       Results
+    ───────────────────────────────────────────────────── */
+    function showResults() {
+      const [title, sub] = VERDICTS[score];
+
+      document.getElementById('final-score').textContent  = score;
+      document.getElementById('verdict-title').textContent = title;
+      document.getElementById('verdict-sub').textContent   = sub;
+
+      // Colour the score based on result
+      const colours = { 0: 'var(--wrong)', 1: 'var(--human)', 2: 'var(--ai)', 3: 'var(--correct)' };
+      document.getElementById('final-score').style.color = colours[score];
+
+      // Build answer log
+      const log = document.getElementById('answers-log');
+      log.innerHTML = '';
+      answers.forEach(a => {
+        const item = document.createElement('div');
+        item.className = `log-item ${a.correct ? 'correct' : 'wrong'}`;
+
+        const snippet = a.text.length > 52 ? a.text.slice(0, 52) + '…' : a.text;
+        const srcLabel = a.source === 'ai' ? 'AI' : 'Human';
+
+        item.innerHTML = `
+          <span class="log-icon">${a.correct ? '✓' : '✗'}</span>
+          <span class="log-text">"${snippet}"</span>
+          <span class="log-source">${srcLabel}</span>
+        `;
+        log.appendChild(item);
+      });
+
+      showScreen('screen-results');
+    }
+  </script>
+</body>
+</html>
